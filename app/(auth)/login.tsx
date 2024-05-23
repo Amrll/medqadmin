@@ -27,7 +27,7 @@ const Login = () => {
     signIn(email, password);
   };
 
-  const [isPasswordShown, setIsPasswordShown] = useState(false);
+  const [isPasswordShown, setIsPasswordShown] = useState(true);
   const [isChecked, setIsChecked] = useState(false);
 
   const [imageDimensions, setImageDimensions] = useState({
