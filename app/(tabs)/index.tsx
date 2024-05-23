@@ -1,14 +1,67 @@
-import { StyleSheet } from 'react-native';
-
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+import React, { useEffect, useState } from "react";
+import { StyleSheet, Text, View, ActivityIndicator } from "react-native";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { FIRESTORE_DB } from "@/lib/firebase";
 
 export default function TabOneScreen() {
+  const [loading, setLoading] = useState(true);
+  const [activeDonationCount, setActiveDonationCount] = useState(0);
+  const [activeUserCount, setActiveUserCount] = useState(0);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        // Fetch active donations
+        const donationsQuery = query(
+          collection(FIRESTORE_DB, "posts"),
+          where("approved", "==", true)
+        );
+        const donationsSnapshot = await getDocs(donationsQuery);
+        const donations = donationsSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setActiveDonationCount(donations.length);
+
+        // Fetch active users
+        const usersQuery = query(
+          collection(FIRESTORE_DB, "users"),
+        );
+        const usersSnapshot = await getDocs(usersQuery);
+        const users = usersSnapshot.docs.map((doc) => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setActiveUserCount(users.length);
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : (
+        <View>
+          <View style={{flexDirection: 'row', justifyContent: 'center'}}>
+            <View style={styles.infoContainer}>
+              <Text style={styles.title}>Active Donations</Text>
+              <Text style={styles.count}>{activeDonationCount}</Text>
+            </View>
+            <View style={styles.infoContainer}>
+              <Text style={styles.title}>Active Users</Text>
+              <Text style={styles.count}>{activeUserCount}</Text>
+            </View>
+          </View>
+        </View>
+      )}
     </View>
   );
 }
@@ -16,16 +69,24 @@ export default function TabOneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: 20,
   },
   title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: "bold",
   },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
+  count: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: '#50C878',
+    marginTop: 10,
+  },
+  infoContainer: {
+    alignItems: "center",
+    borderColor: "#ccc",
+    borderWidth: 2,
+    padding: 10,
+    borderRadius: 10,
+    margin: 10,
   },
 });
