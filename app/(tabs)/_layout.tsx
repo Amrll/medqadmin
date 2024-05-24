@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import FontAwesome from "@expo/vector-icons/FontAwesome";
 import { Link, Tabs } from "expo-router";
 import { Pressable } from "react-native";
@@ -8,6 +8,8 @@ import { useColorScheme } from "@/components/useColorScheme";
 import { useClientOnlyValue } from "@/components/useClientOnlyValue";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { Drawer } from "expo-router/drawer";
+import { FIRESTORE_DB } from "@/lib/firebase";
+import { query, collection, where, getDocs } from "firebase/firestore";
 
 // You can explore the built-in icon families and icons on the web at https://icons.expo.fyi/
 function TabBarIcon(props: {
@@ -19,6 +21,38 @@ function TabBarIcon(props: {
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const [activeDonationCount, setActiveDonationCount] = useState(0);
+  const [activeUserCount, setActiveUserCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      setLoading(true);
+      try {
+        // Fetch active donations
+        const activeDonationsQuery = query(
+          collection(FIRESTORE_DB, "posts"),
+          where("approved", "==", false)
+        );
+        const activeDonationsSnapshot = await getDocs(activeDonationsQuery);
+        setActiveDonationCount(activeDonationsSnapshot.size);
+
+        // Fetch active users
+        const usersQuery = query(
+          collection(FIRESTORE_DB, "verification"),
+          where("status", "==", "active")
+        );
+        const usersSnapshot = await getDocs(usersQuery);
+        setActiveUserCount(usersSnapshot.size);
+      } catch (error) {
+        console.error("Error fetching counts:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCounts();
+  }, []);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -46,13 +80,13 @@ export default function TabLayout() {
         <Drawer.Screen
           name="two"
           options={{
-            title: "Donation Request",
+            title: `Donation Request (${activeDonationCount})`,
           }}
         />
         <Drawer.Screen
           name="userVerification"
           options={{
-            title: "User Verification",
+            title: `User Verification (${activeUserCount})`,
           }}
         />
         <Drawer.Screen

@@ -224,7 +224,7 @@ const styles = StyleSheet.create({
   ProfilePicture: {
     width: 60,
     height: 60,
-    borderRadius: 9999,
+    borderRadius: 9999, 
     marginRight: 10,
   },
   modalOverlay: {
