@@ -1,12 +1,27 @@
 import React, { useEffect, useState } from "react";
-import { StyleSheet, Text, View, ActivityIndicator } from "react-native";
+import { StyleSheet, Text, View, ActivityIndicator, Image } from "react-native";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { FIRESTORE_DB } from "@/lib/firebase";
+import '../../assets/images/PlantPhase/plant1.png';
+import "../../assets/images/PlantPhase/plant2.png";
+import "../../assets/images/PlantPhase/plant3.png";
+import "../../assets/images/PlantPhase/plant4.png";
+import "../../assets/images/PlantPhase/plant5.png";
+import "../../assets/images/PlantPhase/plant6.png";
 
 export default function TabOneScreen() {
   const [loading, setLoading] = useState(true);
   const [activeDonationCount, setActiveDonationCount] = useState(0);
   const [activeUserCount, setActiveUserCount] = useState(0);
+
+  const getPlantImage = () => {
+    if(activeDonationCount < 5) return require('../../assets/images/PlantPhase/plant1.png');
+    if(activeDonationCount < 10) return require('../../assets/images/PlantPhase/plant2.png');
+    if(activeDonationCount < 15) return require('../../assets/images/PlantPhase/plant3.png');
+    if(activeDonationCount < 20) return require('../../assets/images/PlantPhase/plant4.png');
+    if(activeDonationCount < 25) return require('../../assets/images/PlantPhase/plant5.png');
+    if(activeDonationCount >= 25) return require('../../assets/images/PlantPhase/plant6.png');
+  };
   
 
   useEffect(() => {
@@ -61,6 +76,9 @@ export default function TabOneScreen() {
               <Text style={styles.count}>{activeUserCount}</Text>
             </View>
           </View>
+          <View style={{alignItems: 'center'}}>
+            <Image source={getPlantImage()} style={styles.plantImage} />
+            </View>
         </View>
       )}
     </View>
@@ -89,5 +107,10 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 10,
     margin: 10,
+  },
+  plantImage: {
+    width: 400,
+    height: 400,
+    marginBottom: 20,
   },
 });
