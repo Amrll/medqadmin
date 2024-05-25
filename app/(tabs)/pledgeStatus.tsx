@@ -142,10 +142,7 @@ const PledgeStatus = () => {
                 </Text>
                 <Text style={styles.pledgeText}>Status: {pledge.status}</Text>
                 <Text style={styles.pledgeText}>
-                  Donor Confirmed: {pledge.donorConfirmed ? "Yes" : "No"}
-                </Text>
-                <Text style={styles.pledgeText}>
-                  Donee Confirmed: {pledge.doneeConfirmed ? "Yes" : "No"}
+                  {pledge.donorConfirmed ? "Waiting for donor confirmation" : "Waiting for donor confirmation"}
                 </Text>
               </View>
               <View style={{ marginLeft: "auto" }}>

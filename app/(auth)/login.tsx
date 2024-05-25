@@ -12,19 +12,41 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  Alert,
 } from "react-native";
 import { FontAwesome } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuth } from "@/context/auth";
 import Button from "@/components/Button";
+import { query, collection, where, getDocs } from "firebase/firestore";
+import { FIRESTORE_DB } from "@/lib/firebase";
 
 const Login = () => {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSignIn = () => {
-    signIn(email, password);
+  const handleSignIn = async () => {
+    try {
+      const userQuery = query(
+        collection(FIRESTORE_DB, "users"),
+        where("email", "==", email)
+      );
+      const querySnapshot = await getDocs(userQuery);
+
+      if (!querySnapshot.empty) {
+        const userData = querySnapshot.docs[0].data();
+        if (userData.isAdmin) {
+          await signIn(email, password);
+          Alert.alert("Success", "You are logged in as an admin.");
+          // Example: router.push("/main"); // Uncomment and customize this line to navigate to the main app screen
+        } else {
+          Alert.alert("Access Denied", "You do not have admin privileges.");
+        }
+      } else {
+        Alert.alert("User Not Found", "No user found with this email.");
+      }
+    } catch (error) {}
   };
 
   const [isPasswordShown, setIsPasswordShown] = useState(true);
@@ -102,7 +124,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "space-between",
     backgroundColor: "#3EB489",
-    alignItems: 'center'
+    alignItems: "center",
   },
   header: {
     fontSize: 40,
@@ -137,8 +159,8 @@ const styles = StyleSheet.create({
     padding: 20,
     borderTopEndRadius: 50,
     borderTopStartRadius: 50,
-    width: '40%',
-    height: '60%',
+    width: "40%",
+    height: "60%",
   },
 });
 

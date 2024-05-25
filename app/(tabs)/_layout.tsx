@@ -56,7 +56,14 @@ export default function TabLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <Drawer>
+      <Drawer
+        screenOptions={{
+          drawerType: "permanent",
+          drawerStyle: {
+            width: 240,
+          },
+        }}
+      >
         <Drawer.Screen
           name="index"
           options={{
