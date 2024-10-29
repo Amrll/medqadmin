@@ -61,7 +61,11 @@ export default function TabLayout() {
           drawerType: "permanent",
           drawerStyle: {
             width: 240,
+            backgroundColor: "#F2F2F2",
           },
+          headerShown: false,
+          drawerActiveBackgroundColor: "rgba(62, 180, 137, 0.2)",
+          drawerActiveTintColor: "#4C9C7F",
         }}
       >
         <Drawer.Screen
@@ -100,6 +104,18 @@ export default function TabLayout() {
           name="pledgeStatus"
           options={{
             title: "Pledges",
+          }}
+        />
+        <Drawer.Screen
+          name="reports"
+          options={{
+            title: "App Reports",
+          }}
+        />
+        <Drawer.Screen
+          name="bugsReport"
+          options={{
+            title: "Bug Reports",
           }}
         />
       </Drawer>

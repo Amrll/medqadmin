@@ -98,8 +98,18 @@ const AdminPanel = () => {
     setSelectedPost(null);
   };
 
-  const PostModal = ({ post }) => (
-    <Modal
+  const PostModal = ({ post}) => {
+    const [loadingImage, setLoadingImage] = useState(true); // Track image loading state
+    const [imageLoaded, setImageLoaded] = useState(false);
+
+    const handleImageLoad = () => {
+      // Image has loaded fully
+      setLoadingImage(false);
+      setImageLoaded(true);
+    };
+  
+    return (
+      <Modal
       animationType="slide"
       transparent={true}
       visible={modalVisible}
@@ -109,17 +119,26 @@ const AdminPanel = () => {
         <View style={styles.modalContainer}>
           {post ? (
             <>
-              <Image source={{ uri: post.image }} style={styles.Image} />
+              {/* Show ActivityIndicator while the image is loading */}
+              {loadingImage && !imageLoaded && (
+                <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
+              )}
+
+              {/* Render the image only if it's fully loaded */}
+              <Image
+                source={{ uri: post.image }}
+                style={[styles.Image, { display: imageLoaded? 'flex' : 'none' }]}
+                resizeMode="contain"
+                onLoad={handleImageLoad} // Once image is loaded, hide loader // Hide loader if there's an error loading the image
+              />
+
               <Text>Caption: {post.caption}</Text>
               <Text>Details: {post.details}</Text>
               <Text>Amount Needed: {post.amountNeeded}</Text>
               <Text>Category: {post.category}</Text>
-              <Text>
-                Target Date: {new Date(post.targetDate).toLocaleDateString()}
-              </Text>
-              <Text>
-                Location: {post.location.latitude}, {post.location.longitude}
-              </Text>
+              <Text>Target Date: {new Date(post.targetDate).toLocaleDateString()}</Text>
+              <Text>Location: {post.location.latitude}, {post.location.longitude}</Text>
+
               <View style={styles.buttonContainer}>
                 <TouchableOpacity
                   style={[styles.button, styles.confirmButton]}
@@ -130,6 +149,7 @@ const AdminPanel = () => {
                 >
                   <Text style={styles.buttonText}>Approve</Text>
                 </TouchableOpacity>
+
                 <TouchableOpacity
                   style={[styles.button, styles.removeButton]}
                   onPress={() => {
@@ -140,6 +160,7 @@ const AdminPanel = () => {
                   <Text style={styles.buttonText}>Reject</Text>
                 </TouchableOpacity>
               </View>
+
               <TouchableOpacity onPress={closeModal}>
                 <Text style={styles.closeButton}>Close</Text>
               </TouchableOpacity>
@@ -150,7 +171,9 @@ const AdminPanel = () => {
         </View>
       </View>
     </Modal>
-  );
+    );
+  };
+  
 
   return (
     <ScrollView style={styles.container}>
@@ -185,6 +208,36 @@ const styles = StyleSheet.create({
     padding: 15,
     marginBottom: 15,
   },
+  Image: {
+    width: "100%",
+    height: 200,
+    borderRadius: 15,
+    marginBottom: 10,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+  modalContainer: {
+    width: 300,
+    padding: 20,
+    backgroundColor: "white",
+    borderRadius: 10,
+  },
+  image: {
+    width: "100%",
+    height: 200,
+    borderRadius: 15,
+    marginBottom: 10,
+  },
+  loader: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    zIndex: 1, // Ensure loader is above the image
+  },
   buttonContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -203,24 +256,6 @@ const styles = StyleSheet.create({
   buttonText: {
     color: "#fff",
     textAlign: "center",
-  },
-  Image: {
-    width: "100%",
-    height: 200,
-    borderRadius: 15,
-    marginBottom: 10,
-  },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "rgba(0,0,0,0.5)",
-  },
-  modalContainer: {
-    width: 300,
-    padding: 20,
-    backgroundColor: "white",
-    borderRadius: 10,
   },
   closeButton: {
     marginTop: 10,

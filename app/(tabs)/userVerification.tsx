@@ -7,6 +7,7 @@ import {
   ScrollView,
   Image,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import {
   getDocs,
@@ -24,6 +25,7 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(false);
   const [selectedVerification, setSelectedVerification] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  ("");
 
   useEffect(() => {
     fetchPendingVerifications();
@@ -64,10 +66,18 @@ const AdminPanel = () => {
     }
   };
 
-  const updateVerificationStatus = async (id, status) => {
+  const updateVerificationStatus = async (id, userId, status) => {
     try {
-      const docRef = doc(FIRESTORE_DB, "verification", id);
-      await updateDoc(docRef, { status });
+      // Update the verification status in the verification collection
+      const verificationDocRef = doc(FIRESTORE_DB, "verification", id);
+      await updateDoc(verificationDocRef, { status });
+  
+      // If the status is confirmed, update the user's verified status to true
+      if (status === 'confirmed') {
+        const userDocRef = doc(FIRESTORE_DB, "users", userId);
+        await updateDoc(userDocRef, { verified: true });
+      }
+  
       // Refresh the list of verifications
       fetchPendingVerifications();
     } catch (error) {
@@ -85,71 +95,91 @@ const AdminPanel = () => {
     setSelectedVerification(null);
   };
 
-  const VerificationModal = ({ verification }) => (
-    <Modal
-      animationType="none"
-      transparent={true}
-      visible={modalVisible}
-      onRequestClose={closeModal}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {verification ? (
-            <>
-              <View style={{ flexDirection: "row" }}>
-                <Image
-                  source={{ uri: verification.idImageUrl }}
-                  style={styles.Image}
-                />
-                <Image
-                  source={{ uri: verification.selfieImageUrl }}
-                  style={styles.Image}
-                />
-              </View>
-              <Text>User ID: {verification.userId}</Text>
-              <Text>ID Type: {verification.idType}</Text>
-              {verification.user && (
-                <Text style={styles.infoText}>
-                  User: {verification.user.firstName}{" "}
-                  {verification.user.lastName}
+
+  const VerificationModal = ({ verification}) => {
+    const [imagesLoaded, setImagesLoaded] = useState({
+      idImage: false,
+      selfieImage: false,
+    });
+  
+    // Check if all images are loaded
+    const allImagesLoaded = imagesLoaded.idImage && imagesLoaded.selfieImage;
+  
+    return (
+      <Modal
+        animationType="none"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {verification ? (
+              <>
+                {!allImagesLoaded && (
+                  <ActivityIndicator
+                    size="large"
+                    color="#0000ff"
+                    style={styles.loader}
+                  />
+                )}
+                <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+                  <Image
+                    source={{ uri: verification.idImageUrl }}
+                    style={[styles.Image, { display: imagesLoaded.idImage ? 'flex' : 'none' }]}
+                    resizeMode="contain"
+                    onLoad={() => setImagesLoaded(prev => ({ ...prev, idImage: true }))}
+                  />
+                  <Image
+                    source={{ uri: verification.selfieImageUrl }}
+                    style={[styles.Image, { display: imagesLoaded.selfieImage ? 'flex' : 'none' }]}
+                    resizeMode="contain"
+                    onLoad={() => setImagesLoaded(prev => ({ ...prev, selfieImage: true }))}
+                  />
+                </View>
+                <Text>User ID: {verification.userId}</Text>
+                <Text>ID Type: {verification.idType}</Text>
+                {verification.user && (
+                  <Text style={styles.infoText}>
+                    User: {verification.user.firstName} {verification.user.lastName}
+                  </Text>
+                )}
+                <Text>
+                  Birthdate: {new Date(verification.user.birthDate).toLocaleString()}
                 </Text>
-              )}  
-              <Text>
-                Birthdate:{" "}
-                {new Date(verification.user.birthDate).toLocaleString()}
-              </Text>
-              <Text>Email: {verification.user.email}</Text>
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                  style={[styles.button, styles.confirmButton]}
-                  onPress={() => {
-                    updateVerificationStatus(verification.id, "confirmed");
-                    closeModal();
-                  }}
-                >
-                  <Text style={styles.buttonText}>Confirm</Text>
+                <Text>Email: {verification.user.email}</Text>
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.confirmButton]}
+                    onPress={() => {
+                      updateVerificationStatus(verification.id, verification.userId, 'confirmed');
+                      closeModal();
+                    }}
+                  >
+                    <Text style={styles.buttonText}>Confirm</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.button, styles.removeButton]}
+                    onPress={() => {
+                      updateVerificationStatus(verification.id, 'removed');
+                      closeModal();
+                    }}
+                  >
+                    <Text style={styles.buttonText}>Remove</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity onPress={closeModal}>
+                  <Text style={styles.closeButton}>Close</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, styles.removeButton]}
-                  onPress={() => {
-                    updateVerificationStatus(verification.id, "removed");
-                    closeModal();
-                  }}
-                >
-                  <Text style={styles.buttonText}>Remove</Text>
-                </TouchableOpacity>
-              </View>
-              <TouchableOpacity onPress={closeModal}>
-                <Text style={styles.closeButton}>Close</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <Text>Loading...</Text>
-          )}
+              </>
+            ) : (
+              <Text>Loading...</Text>
+            )}
+          </View>
         </View>
-      </View>
-    </Modal>
-  );
+      </Modal>
+    );
+  };
 
   return (
     <ScrollView style={styles.container}>
@@ -172,7 +202,9 @@ const AdminPanel = () => {
                   {verification.user.firstName} {verification.user.lastName}
                 </Text>
               </View>
-              <Text style={{color: 'orange', fontWeight: 'bold'}}>{verification.idType}</Text>
+              <Text style={{ color: "orange", fontWeight: "bold" }}>
+                {verification.idType}
+              </Text>
             </View>
           </TouchableOpacity>
         ))
@@ -221,10 +253,16 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     marginRight: 10,
   },
+  loader: {
+    position: "absolute",
+    top: "50%",
+    left: "50%",
+    zIndex: 1, // Ensure loader is above the image
+  },
   ProfilePicture: {
     width: 60,
     height: 60,
-    borderRadius: 9999, 
+    borderRadius: 9999,
     marginRight: 10,
   },
   modalOverlay: {
@@ -234,8 +272,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContainer: {
-    height: '100%',
-    width: '50%',
+    height: "100%",
+    width: "50%",
     padding: 20,
     backgroundColor: "white",
     borderRadius: 10,
@@ -259,7 +297,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 14,
-  }
+  },
 });
 
 export default AdminPanel;
