@@ -19,6 +19,7 @@ import {
   where,
   onSnapshot,
   arrayUnion,
+  getDoc, // Import getDoc for fetching individual user document
 } from "firebase/firestore";
 import { FIRESTORE_DB } from "@/lib/firebase";
 
@@ -32,7 +33,6 @@ const approveDonation = async (id, userId, postImage, caption) => {
     const notificationsRef = doc(FIRESTORE_DB, "notifications", userId);
     const currentTime = new Date().toISOString();
 
-    // Update notifications using arrayUnion
     await updateDoc(notificationsRef, {
       notifications: arrayUnion({
         postImage: postImage,
@@ -57,6 +57,7 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(false);
   const [selectedPost, setSelectedPost] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [userData, setUserData] = useState(null); // State to store user data
 
   useEffect(() => {
     const q = query(
@@ -80,8 +81,22 @@ const AdminPanel = () => {
       }
     );
 
-    return () => unsubscribe(); // Cleanup the listener on unmount
+    return () => unsubscribe();
   }, []);
+
+  const fetchUserData = async (userId) => {
+    try {
+      const userRef = doc(FIRESTORE_DB, "users", userId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        setUserData(userSnap.data());
+      } else {
+        console.log("No user data found");
+      }
+    } catch (error) {
+      console.error("Error fetching user data:", error);
+    }
+  };
 
   const handleApprove = async (post) => {
     const { id, userId, image, caption } = post;
@@ -90,90 +105,192 @@ const AdminPanel = () => {
 
   const openModal = (post) => {
     setSelectedPost(post);
+    fetchUserData(post.userId); // Fetch user data when opening modal
     setModalVisible(true);
   };
 
   const closeModal = () => {
     setModalVisible(false);
     setSelectedPost(null);
+    setUserData(null); // Reset user data on modal close
   };
 
-  const PostModal = ({ post}) => {
-    const [loadingImage, setLoadingImage] = useState(true); // Track image loading state
+  const PostModal = ({ post }) => {
+    const [loadingImage, setLoadingImage] = useState(true);
     const [imageLoaded, setImageLoaded] = useState(false);
+    const [selectedImage, setSelectedImage] = useState(null);
 
     const handleImageLoad = () => {
-      // Image has loaded fully
       setLoadingImage(false);
       setImageLoaded(true);
     };
-  
+
+    const openImageModal = (imageUri) => {
+      setSelectedImage(imageUri);
+    };
+
+    const closeImageModal = () => {
+      setSelectedImage(null);
+    };
+
     return (
       <Modal
-      animationType="slide"
-      transparent={true}
-      visible={modalVisible}
-      onRequestClose={closeModal}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {post ? (
-            <>
-              {/* Show ActivityIndicator while the image is loading */}
-              {loadingImage && !imageLoaded && (
-                <ActivityIndicator size="large" color="#0000ff" style={styles.loader} />
-              )}
+        animationType="slide"
+        transparent={true}
+        visible={modalVisible}
+        onRequestClose={closeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {post ? (
+              <>
+                {loadingImage && !imageLoaded && (
+                  <ActivityIndicator
+                    size="large"
+                    color="#0000ff"
+                    style={styles.loader}
+                  />
+                )}
+                <View style={{ flexDirection: "row" }}>
+                  <View style={{flex: 1,}}>
+                    <Image
+                      source={{ uri: post.image }}
+                      style={[
+                        styles.image,
+                        { display: imageLoaded ? "flex" : "none" },
+                      ]}
+                      resizeMode="contain"
+                      onLoad={handleImageLoad}
+                    />
+                  </View>
+                  <View style={{flex: 1,}}>
+                    <Text style={{ marginTop: 20, fontSize: 18 }}>
+                      Supporting Images
+                    </Text>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      style={styles.supportingImagesContainer}
+                    >
+                      {post.supportingImages.map((imageUri, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          onPress={() => openImageModal(imageUri)}
+                        >
+                          <Image
+                            source={{ uri: imageUri }}
+                            style={styles.supportingImage}
+                            resizeMode="cover"
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+                  </View>
+                </View>
 
-              {/* Render the image only if it's fully loaded */}
-              <Image
-                source={{ uri: post.image }}
-                style={[styles.Image, { display: imageLoaded? 'flex' : 'none' }]}
-                resizeMode="contain"
-                onLoad={handleImageLoad} // Once image is loaded, hide loader // Hide loader if there's an error loading the image
-              />
+                <View style={styles.textContainer}>
+                  {userData && (
+                    <View style={styles.infoRow}>
+                      <Text style={styles.label}>User:</Text>
+                      <Text style={styles.value}>
+                        {userData.firstName} {userData.lastName}
+                      </Text>
+                    </View>
+                  )}
 
-              <Text>Caption: {post.caption}</Text>
-              <Text>Details: {post.details}</Text>
-              <Text>Amount Needed: {post.amountNeeded}</Text>
-              <Text>Category: {post.category}</Text>
-              <Text>Target Date: {new Date(post.targetDate).toLocaleDateString()}</Text>
-              <Text>Location: {post.location.latitude}, {post.location.longitude}</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Caption:</Text>
+                    <Text style={styles.value}>{post.caption}</Text>
+                  </View>
 
-              <View style={styles.buttonContainer}>
-                <TouchableOpacity
-                  style={[styles.button, styles.confirmButton]}
-                  onPress={() => {
-                    handleApprove(post);
-                    closeModal();
-                  }}
-                >
-                  <Text style={styles.buttonText}>Approve</Text>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Details:</Text>
+                    <Text style={styles.value}>{post.details}</Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Amount Needed:</Text>
+                    <Text style={styles.value}>{post.amountNeeded}</Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Category:</Text>
+                    <Text style={styles.value}>{post.category}</Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Target Date:</Text>
+                    <Text style={styles.value}>
+                      {post.targetDate && post.targetDate.toDate
+                        ? post.targetDate.toDate().toLocaleDateString()
+                        : "Date not available"}
+                    </Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Location:</Text>
+                    <Text style={styles.value}>
+                      {post.barangay}, {post.city}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.buttonContainer}>
+                  <TouchableOpacity
+                    style={[styles.button, styles.confirmButton]}
+                    onPress={() => {
+                      handleApprove(post);
+                      closeModal();
+                    }}
+                  >
+                    <Text style={styles.buttonText}>Approve</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.button, styles.removeButton]}
+                    onPress={() => {
+                      updatePostStatus(post.id, false);
+                      closeModal();
+                    }}
+                  >
+                    <Text style={styles.buttonText}>Reject</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity onPress={closeModal}>
+                  <Text style={styles.closeButton}>Close</Text>
                 </TouchableOpacity>
+              </>
+            ) : (
+              <Text>Loading...</Text>
+            )}
+          </View>
 
-                <TouchableOpacity
-                  style={[styles.button, styles.removeButton]}
-                  onPress={() => {
-                    updatePostStatus(post.id, false);
-                    closeModal();
-                  }}
-                >
-                  <Text style={styles.buttonText}>Reject</Text>
-                </TouchableOpacity>
+          {selectedImage && (
+            <Modal
+              animationType="fade"
+              transparent={true}
+              visible={true}
+              onRequestClose={closeImageModal}
+            >
+              <View style={styles.modalOverlay}>
+                <View style={styles.imageModalContainer}>
+                  <Image
+                    source={{ uri: selectedImage }}
+                    style={styles.fullImage}
+                    resizeMode="contain"
+                  />
+                  <TouchableOpacity onPress={closeImageModal}>
+                    <Text style={styles.closeButton}>Close</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
-
-              <TouchableOpacity onPress={closeModal}>
-                <Text style={styles.closeButton}>Close</Text>
-              </TouchableOpacity>
-            </>
-          ) : (
-            <Text>Loading...</Text>
+            </Modal>
           )}
         </View>
-      </View>
-    </Modal>
+      </Modal>
     );
   };
-  
 
   return (
     <ScrollView style={styles.container}>
@@ -221,7 +338,8 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.5)",
   },
   modalContainer: {
-    width: 300,
+    maxHeight: "90%",
+    width: "70%",
     padding: 20,
     backgroundColor: "white",
     borderRadius: 10,
@@ -261,6 +379,56 @@ const styles = StyleSheet.create({
     marginTop: 10,
     color: "blue",
     textAlign: "center",
+  },
+  supportingImagesContainer: {
+    flexDirection: "row",
+    marginVertical: 10,
+  },
+  supportingImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 8,
+    marginRight: 10,
+  },
+  imageModalContainer: {
+    width: "50%",
+    height: "80%",
+    backgroundColor: "white",
+    borderRadius: 10,
+    padding: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  fullImage: {
+    width: "100%",
+    height: "90%",
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  textContainer: {
+    backgroundColor: "#f9f9f9",
+    borderRadius: 8,
+  },
+  infoRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e0e0e0",
+    paddingBottom: 5,
+  },
+  label: {
+    fontWeight: "bold",
+    fontSize: 16,
+    color: "#333",
+    flex: 0.4,
+  },
+  value: {
+    fontSize: 16,
+    color: "#555",
+    textAlign: "right",
+    flex: 0.6,
   },
 });
 

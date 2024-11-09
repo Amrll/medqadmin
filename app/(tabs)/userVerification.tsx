@@ -17,6 +17,8 @@ import {
   query,
   where,
   getDoc,
+  arrayUnion,
+  onSnapshot,
 } from "firebase/firestore";
 import { FIRESTORE_DB } from "@/lib/firebase";
 
@@ -25,36 +27,40 @@ const AdminPanel = () => {
   const [loading, setLoading] = useState(false);
   const [selectedVerification, setSelectedVerification] = useState(null);
   const [modalVisible, setModalVisible] = useState(false);
-  ("");
 
+  // Real-time listener for verifications with 'active' status
   useEffect(() => {
-    fetchPendingVerifications();
-  }, []);
-
-  const fetchPendingVerifications = async () => {
     setLoading(true);
-    try {
-      const q = query(
-        collection(FIRESTORE_DB, "verification"),
-        where("status", "==", "active")
-      );
-      const querySnapshot = await getDocs(q);
-      const verificationsData = [];
+    const q = query(
+      collection(FIRESTORE_DB, "verification"),
+      where("status", "==", "active")
+    );
+    const unsubscribe = onSnapshot(
+      q,
+      async (snapshot) => {
+        const verificationsData = [];
 
-      for (const doc of querySnapshot.docs) {
-        const verification = { id: doc.id, ...doc.data() };
-        const userData = await fetchUserData(verification.userId);
-        verification.user = userData;
-        verificationsData.push(verification);
+        for (const doc of snapshot.docs) {
+          const verification = { id: doc.id, ...doc.data() };
+          const userData = await fetchUserData(verification.userId);
+          verification.user = userData;
+          verificationsData.push(verification);
+        }
+
+        setVerifications(verificationsData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error(
+          "Error fetching real-time updates for verifications:",
+          error
+        );
+        setLoading(false);
       }
+    );
 
-      setVerifications(verificationsData);
-    } catch (error) {
-      console.error("Error fetching pending verifications:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => unsubscribe(); // Cleanup listener on component unmount
+  }, []);
 
   const fetchUserData = async (userId) => {
     try {
@@ -68,18 +74,23 @@ const AdminPanel = () => {
 
   const updateVerificationStatus = async (id, userId, status) => {
     try {
-      // Update the verification status in the verification collection
       const verificationDocRef = doc(FIRESTORE_DB, "verification", id);
       await updateDoc(verificationDocRef, { status });
-  
-      // If the status is confirmed, update the user's verified status to true
-      if (status === 'confirmed') {
+
+      if (status === "confirmed") {
         const userDocRef = doc(FIRESTORE_DB, "users", userId);
         await updateDoc(userDocRef, { verified: true });
-      }
+
+        const notificationsRef = doc(FIRESTORE_DB, "notifications", userId);
+        const currentTime = new Date().toISOString();
   
-      // Refresh the list of verifications
-      fetchPendingVerifications();
+        await updateDoc(notificationsRef, {
+          notifications: arrayUnion({
+            time: currentTime,
+            verificationId: id,
+          }),
+        });
+      }
     } catch (error) {
       console.error("Error updating verification status:", error);
     }
@@ -96,15 +107,14 @@ const AdminPanel = () => {
   };
 
 
-  const VerificationModal = ({ verification}) => {
+  const VerificationModal = ({ verification }) => {
     const [imagesLoaded, setImagesLoaded] = useState({
       idImage: false,
       selfieImage: false,
     });
-  
-    // Check if all images are loaded
+
     const allImagesLoaded = imagesLoaded.idImage && imagesLoaded.selfieImage;
-  
+
     return (
       <Modal
         animationType="none"
@@ -123,36 +133,55 @@ const AdminPanel = () => {
                     style={styles.loader}
                   />
                 )}
-                <View style={{ flexDirection: 'row', marginBottom: 10 }}>
+                <View style={{ flexDirection: "row", marginBottom: 10 }}>
                   <Image
                     source={{ uri: verification.idImageUrl }}
-                    style={[styles.Image, { display: imagesLoaded.idImage ? 'flex' : 'none' }]}
+                    style={[
+                      styles.Image,
+                      { display: imagesLoaded.idImage ? "flex" : "none" },
+                    ]}
                     resizeMode="contain"
-                    onLoad={() => setImagesLoaded(prev => ({ ...prev, idImage: true }))}
+                    onLoad={() =>
+                      setImagesLoaded((prev) => ({ ...prev, idImage: true }))
+                    }
                   />
                   <Image
                     source={{ uri: verification.selfieImageUrl }}
-                    style={[styles.Image, { display: imagesLoaded.selfieImage ? 'flex' : 'none' }]}
+                    style={[
+                      styles.Image,
+                      { display: imagesLoaded.selfieImage ? "flex" : "none" },
+                    ]}
                     resizeMode="contain"
-                    onLoad={() => setImagesLoaded(prev => ({ ...prev, selfieImage: true }))}
+                    onLoad={() =>
+                      setImagesLoaded((prev) => ({
+                        ...prev,
+                        selfieImage: true,
+                      }))
+                    }
                   />
                 </View>
                 <Text>User ID: {verification.userId}</Text>
                 <Text>ID Type: {verification.idType}</Text>
                 {verification.user && (
                   <Text style={styles.infoText}>
-                    User: {verification.user.firstName} {verification.user.lastName}
+                    Full Name: {verification.user.firstName}{" "}
+                    {verification.user.lastName}
                   </Text>
                 )}
                 <Text>
-                  Birthdate: {new Date(verification.user.birthDate).toLocaleString()}
+                  Birthdate:
+                  {new Date(verification.user.birthDate.seconds * 1000).toLocaleDateString()}
                 </Text>
                 <Text>Email: {verification.user.email}</Text>
                 <View style={styles.buttonContainer}>
                   <TouchableOpacity
                     style={[styles.button, styles.confirmButton]}
                     onPress={() => {
-                      updateVerificationStatus(verification.id, verification.userId, 'confirmed');
+                      updateVerificationStatus(
+                        verification.id,
+                        verification.userId,
+                        "confirmed"
+                      );
                       closeModal();
                     }}
                   >
@@ -161,7 +190,7 @@ const AdminPanel = () => {
                   <TouchableOpacity
                     style={[styles.button, styles.removeButton]}
                     onPress={() => {
-                      updateVerificationStatus(verification.id, 'removed');
+                      updateVerificationStatus(verification.id, verification.userId, "removed");
                       closeModal();
                     }}
                   >

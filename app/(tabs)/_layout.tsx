@@ -118,6 +118,12 @@ export default function TabLayout() {
             title: "Bug Reports",
           }}
         />
+        <Drawer.Screen
+          name="gcash"
+          options={{
+            title: "Gcash Donation",
+          }}
+        />
       </Drawer>
     </GestureHandlerRootView>
   );
